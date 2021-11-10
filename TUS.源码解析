@@ -1,0 +1,23 @@
+TusClient(url,header)
+
+uploader->
+	Uploader
+		self.file_steam = open(self.file_path, 'rb')
+		self.url = self.get_url() - > 
+			key = self.fingerprinter.get_fingerprint(self.file_steam) ->md5
+            url = self.url_storage.get_item(key) -> tiny_db -> key:url
+			->  create_url 
+				upload-length + upload-metadata	-> location->url + id
+		self.offset = self.get_offset()->head-url->upload-offset
+		self.chunk_size = 9223372036854775807
+		self.upload_checksum
+		
+		upload_chunk
+			_do_request->uploader.request = TusRequest upload-offset
+			self.request.perform() 
+				read_chunk ->chunk
+				self.handle.patch->request.patch(url,data,header)->204
+				self._response.headers->self.request.response_headers
+			verify_upload ->self.handle->204
+			self.offset->response_headers
+			

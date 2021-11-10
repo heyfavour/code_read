@@ -1,0 +1,22 @@
+fastapi/applications->__call__->starlette/applications->__call__->middleware_stack->build_middleware_stack
+
+中间件
+Middleware ->__call__->self.app(scope, receive, sender)=apirouter(scope, receive, sender)->APIRouter(routing.Router)(fastapi/routing)->starlette/routing->Router->__call__->for route in routes:if route.matches + route.handle
+
+starlette->routing->class BaseRoute->__call__-> matches -> handle
+
+starlette->routing->class Route(BaseRoute)->matches
+starlette->routing->class Route(BaseRoute)->handle->self.app(scope, receive, send) = 
+
+fastapi/routing->APIRoute(routing.Route)->self.app = request_response(self.get_route_handler())
+
+fastapi/routing->get_route_handler->app->run_endpoint_function(dependant,参数)->异步 dependant.call/ 同步 run_in_threadpool(dependant.call)
+
+注意:dependant = get_dependant(path=self.path_format, call=self.endpoint) 参数为 路径 + func
+
+
+
+
+
+
+solve_dependencies->is_gen_callable->solve_generator->cm = contextmanager_in_threadpool->enter_async_context->_cm_type.__aenter__(cm)

@@ -1,0 +1,122 @@
+class Trainable:
+
+	def default_resource_request():
+		默认资源配置
+		
+	def train_buffered():
+		while 时间范围内 or 没有result:
+			result = self.train()
+			results.append(result)
+			if done SHOULD_CHECKPOINT RESULT_DUPLICATE max_buffer_length:break
+		return results
+	
+	def train():
+		result = self.step()
+		return result
+		
+	def step():===>需要被重写
+		pass
+		
+	def save_checkpoint(dir):===>需要被重写
+		保存模型
+		
+		
+	def load_checkpoint(checkpoint):===>需要被重写
+		加载模型
+		
+	def setup():===>需要被重写
+		自定义初始化
+		
+<class 'ray.rllib.agents.callbacks.DefaultCallbacks'>
+class DefaultCallbacks():
+	def on_episode_start():
+	def on_episode_step():
+	def on_episode_end():
+	def on_postprocess_trajectory():
+	def on_sample_end():
+	def on_learn_on_batch():
+	def on_train_result():
+		
+class Trainer(Trainable):
+	self._env_id = self._register_if_needed(env or config.get("env"))#env_name
+	
+	@override
+	def default_resource_request() 
+		重写资源配置
+		
+	@override
+	def train():
+		重写train 加入重试
+		for _ in  range(1+3):#最多重试四次 Trainable.train()
+			try:
+				result = Trainable.train(self)
+			except:
+				raise Exception
+			else:
+				break
+		return result
+	@override	
+	def setup():
+		#创建环境
+		self.env_creator = functools.partial(gym_env_creator, env_descriptor=env)#return gym.make(env)
+		#合并config
+		self.raw_user_config = config
+        self.config = Trainer.merge_trainer_configs(self._default_config,config)
+		#校验config
+		self._validate_config(self.config, trainer_obj_or_none=self)
+		#自定义中间回调
+		self.callbacks()#<class 'ray.rllib.agents.callbacks.DefaultCallbacks'>,
+		
+	@override
+	def cleanup():
+	
+	@override
+	def save_checkpoint()：
+	
+	@override
+	def load_checkpoint():
+	
+	@DeveloperAPI
+	def _make_workers():
+		return WorkerSet(env_creator=env_creator,validate_env=validate_env,policy_class=policy_class, trainer_config=config,num_workers=num_workers,logdir=self.logdir)
+		
+	def evaluate():
+		self.evaluation_workers.remote_workers()
+		
+	def _sync_weights_to_workers:#同步参数到worker
+		weights = ray.put(self.workers.local_worker().save())
+        worker_set.foreach_worker(lambda w: w.restore(ray.get(weights)))
+		
+	def compute_single_action()
+		pp = self.workers.local_worker().preprocessors[policy_id]
+		result = self.get_policy(policy_id).compute_single_action()
+		
+	def compute_actions()
+		actions, states, infos = policy.compute_actions()
+		
+def build_q_losses(Policy,model,_,train_batch):
+		
+def build_policy_class()：
+	
+		
+########################################################入口 trainer
+DQNTrainer = GenericOffPolicyTrainer.with_updates(name="DQN", default_policy=DQNTFPolicy, default_config=DEFAULT_CONFIG)
+
+GenericOffPolicyTrainer = build_trainer(
+    name="GenericOffPolicyAlgorithm",
+    default_policy=None,
+    get_policy_class=get_policy_class,
+    default_config=DEFAULT_CONFIG,
+    validate_config=validate_config,
+    execution_plan=execution_plan)
+	
+def build_trainer():
+	base = add_mixins(Trainer, mixins)
+    class trainer_cls(base):
+		_name = name
+        _default_config = default_config or COMMON_CONFIG
+        _policy_class = default_policy
+			
+			
+	
+	
