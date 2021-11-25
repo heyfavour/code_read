@@ -1,8 +1,6 @@
+#############################################################################################################Train
 class Trainable:
-
-	def default_resource_request():
-		默认资源配置
-		
+	def default_resource_request():默认资源配置
 	def train_buffered():
 		while 时间范围内 or 没有result:
 			result = self.train()
@@ -15,17 +13,10 @@ class Trainable:
 		return result
 		
 	def step():===>需要被重写
-		pass
+	def save_checkpoint(dir):===>需要被重写 保存模型
+	def load_checkpoint(checkpoint):===>需要被重写 加载模型		
+	def setup():===>需要被重写 自定义初始化
 		
-	def save_checkpoint(dir):===>需要被重写
-		保存模型
-		
-		
-	def load_checkpoint(checkpoint):===>需要被重写
-		加载模型
-		
-	def setup():===>需要被重写
-		自定义初始化
 		
 <class 'ray.rllib.agents.callbacks.DefaultCallbacks'>
 class DefaultCallbacks():
@@ -49,7 +40,7 @@ class Trainer(Trainable):
 		重写train 加入重试
 		for _ in  range(1+3):#最多重试四次 Trainable.train()
 			try:
-				result = Trainable.train(self)
+				result = Trainable.train(self)->调用一次父级train->self.step 注意：Trainable|Trainer 无 step
 			except:
 				raise Exception
 			else:
@@ -93,29 +84,101 @@ class Trainer(Trainable):
 		
 	def compute_actions()
 		actions, states, infos = policy.compute_actions()
+#############################################################################################################Policy
+class Policy():
+	def __init__()
+		self.observation_space
+		self.action_space
+		self.action_space_struct
+		self.global_timestep
+		self.exploration = self._create_exploration()
+	def _create_exploration():
+		config["Exploration"]
 		
+	def compute_actions():
+	def compute_single_action(obs,state,prev_action,prev_reward):
+		out = self.compute_actions_from_input_dict()
+	def compute_actions_from_input_dict(input=SampleBatch:dict):
+		return compute_actions
+	def compute_log_likelihoods():
+	def postprocess_trajectory():return sample_batch
+	def learn_on_batch():
+		grads, grad_info = self.compute_gradients(samples)
+		self.apply_gradients(grads)
+		return grad_info
+	def compute_gradients():
+	def apply_gradients():
+	def get_weights():
+	def set_weights():
+	def get_exploration_info():return self.get_exploration_state()
+	def get_num_samples_loaded_into_buffer():
+	def learn_on_loaded_batch()
+	
+class ModelV2:
+	def __init__(obs_space,action_space,num_outputs,model_config,name,framework):
+	def forward(input_dict,state,seq_lens):
+	def value_function():
+	def custom_loss():
+	def from_batch():
+	
+class TorchPolicy():
+	def __init__(model: ModelV2):
+		super.__init__():
+		self.dist_class = action_distribution_class#动作分布类-》TorchDistributionWrapper logp entropy kl sample sampled_action_logp
+		self.model_gpu_towers.append(model_copy.to(self.devices[i]))
+		self.model = self.model_gpu_towers[0]
+		#处理gpu + worker
+	def compute_actions():
+		return self._compute_action_helper():
+	def _compute_action_helper():
+		self.exploration.before_compute_actions()
+		dist_class = self.dist_class
+		 dist_inputs, state_out = self.model(input_dict, state_batches,seq_lens)
+	
 def build_q_losses(Policy,model,_,train_batch):
+	TorchPolicy
+	return TorchPolicy
 		
 def build_policy_class()：
 	
 		
-########################################################入口 trainer
+#############################################################################################################入口
 DQNTrainer = GenericOffPolicyTrainer.with_updates(name="DQN", default_policy=DQNTFPolicy, default_config=DEFAULT_CONFIG)
 
-GenericOffPolicyTrainer = build_trainer(
-    name="GenericOffPolicyAlgorithm",
+GenericOffPolicyTrainer = SimpleQTrainer.with_updates(
+    name="GenericOffPolicyTrainer",
+    # No Policy preference.
     default_policy=None,
-    get_policy_class=get_policy_class,
+    get_policy_class=None,
+    # Use DQN's config and exec. plan as base for
+    # all other OffPolicy algos.
     default_config=DEFAULT_CONFIG,
     validate_config=validate_config,
     execution_plan=execution_plan)
+
+SimpleQTrainer = build_trainer(
+    name="SimpleQTrainer",
+    default_policy=SimpleQTFPolicy,
+    get_policy_class=get_policy_class,-> config['torch']->SimpleQTorchPolicy
+    execution_plan=execution_plan,
+    default_config=DEFAULT_CONFIG,
+)
 	
-def build_trainer():
-	base = add_mixins(Trainer, mixins)
-    class trainer_cls(base):
+def build_trainer(name,default_policy,get_policy_class,execution_plan,default_config):
+	base = add_mixins(Trainer, mixins) #mixins = [] base->Trainer
+    class trainer_cls(Trainer):
 		_name = name
-        _default_config = default_config or COMMON_CONFIG
+        _default_config = default_config or COMMON_CONFIG -> DEFAULT_CONFIG
         _policy_class = default_policy
+		
+		def __init__():
+		def setup():
+			super().setup(config)
+		def _init(config，env_creator):
+			self._policy_class = default_policy->SimpleQTorchPolicy|SimpleQTFPolicy 第一次初始化->build_policy_class
+		
+		def step():Trainable|Trainer 的step在此处调用
+			step_results = next(self.train_exec_impl)
 			
 			
 	
