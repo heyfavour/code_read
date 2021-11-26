@@ -1,4 +1,7 @@
 #############################################################################################################Train
+class RolloutWorker(ParallelIteratorWorker):
+class WorkerSet()
+#############################################################################################################Train
 class Trainable:
 	def default_resource_request():默认资源配置
 	def train_buffered():
@@ -9,7 +12,7 @@ class Trainable:
 		return results
 	
 	def train():
-		result = self.step()
+		result = self.step()#trainer_cls.step()
 		return result
 		
 	def step():===>需要被重写
@@ -84,6 +87,25 @@ class Trainer(Trainable):
 		
 	def compute_actions()
 		actions, states, infos = policy.compute_actions()
+############################################################################################################# Loss
+class QLoss:
+	def __init__():
+		q_target = r+gamma*n_step*mask
+		loss=q_select - q_target
+		self.td_error = q_t_selected - q_t_selected_target.detach()
+		self.loss = torch.mean(importance_weights.float() * huber_loss(self.td_error))#Huber Loss MSE+MAE
+
+	
+def build_q_losses(Policy,model,_,train_batch):
+	q_t, q_logits_t, q_probs_t, _ #Q-network evaluation.
+	q_tp1, q_logits_tp1, q_probs_tp1, _ #Target Q-network evaluation.
+	q_loss = QLoss(q_t_selected, q_logits_t_selected, q_tp1_best,q_probs_tp1_best, 
+			   train_batch[PRIO_WEIGHTS],
+			   train_batch[SampleBatch.REWARDS],
+			   train_batch[SampleBatch.DONES].float(), config["gamma"],
+			   config["n_step"], config["num_atoms"], config["v_min"],
+			   config["v_max"])
+    return q_loss.loss
 #############################################################################################################Policy
 class Policy():
 	def __init__()
@@ -127,6 +149,7 @@ class TorchPolicy():
 		self.dist_class = action_distribution_class#动作分布类-》TorchDistributionWrapper logp entropy kl sample sampled_action_logp
 		self.model_gpu_towers.append(model_copy.to(self.devices[i]))
 		self.model = self.model_gpu_towers[0]
+		self.loss = loss = build_q_losses
 		#处理gpu + worker
 	def compute_actions():
 		return self._compute_action_helper():
@@ -134,16 +157,45 @@ class TorchPolicy():
 		self.exploration.before_compute_actions()
 		dist_class = self.dist_class
 		 dist_inputs, state_out = self.model(input_dict, state_batches,seq_lens)
-	
-def build_q_losses(Policy,model,_,train_batch):
-	TorchPolicy
-	return TorchPolicy
+		 
+class DQNTFPolicy():
+	pass
+
 		
-def build_policy_class()：
+def build_policy_class(build_q_losses.optimizer_fn=adam_optimizer)：
+	policy_cls(TorchPolicy)
+	model_cls = TorchModelV2()->ModelV2
 	
-		
+def build_tf_policy():
+	policy_cls(DynamicTFPolicy)
+	
+############################################################################################################# 经验池
+def LocalReplayBuffer():
+	def add_batch
+	def replay
+	def update_priorities
+	
+def ParallelRollouts():
+	workers.sync_weights()
+	rollouts = from_actors(workers.remote_workers())->ParallelIterator
+	
+	
+def execution_plan(Trainer,WorkerSet,config,):
+	local_replay_buffer = LocalReplayBuffer # Generate and  store
+	rollouts = ParallelRollouts(workers, mode="bulk_sync")
+	replay_op = Replay()					# Read and train
+	train_op = Concurrently([store_op, replay_op], mode="round_robin", output_indexes=[1])
+	return StandardMetricsReporting(train_op, workers, config)
+############################################################################################################# utils
+def get_policy_class():if config["framework"] == "torch": return DQNTorchPolicy
 #############################################################################################################入口
-DQNTrainer = GenericOffPolicyTrainer.with_updates(name="DQN", default_policy=DQNTFPolicy, default_config=DEFAULT_CONFIG)
+SimpleQTrainer = build_trainer(
+    name="SimpleQTrainer",
+    default_policy=SimpleQTFPolicy,
+    get_policy_class=get_policy_class,-> config['torch']->SimpleQTorchPolicy
+    execution_plan=execution_plan,
+    default_config=DEFAULT_CONFIG,#rllib/agent/dqn/simple_q/DEFAULT_CONFIG
+)
 
 GenericOffPolicyTrainer = SimpleQTrainer.with_updates(
     name="GenericOffPolicyTrainer",
@@ -152,34 +204,42 @@ GenericOffPolicyTrainer = SimpleQTrainer.with_updates(
     get_policy_class=None,
     # Use DQN's config and exec. plan as base for
     # all other OffPolicy algos.
-    default_config=DEFAULT_CONFIG,
+    default_config=DEFAULT_CONFIG,##rllib/agent/dqn/DEFAULT_CONFIG
     validate_config=validate_config,
-    execution_plan=execution_plan)
-
-SimpleQTrainer = build_trainer(
-    name="SimpleQTrainer",
-    default_policy=SimpleQTFPolicy,
-    get_policy_class=get_policy_class,-> config['torch']->SimpleQTorchPolicy
-    execution_plan=execution_plan,
-    default_config=DEFAULT_CONFIG,
+    execution_plan=execution_plan
 )
+
+DQNTrainer = GenericOffPolicyTrainer.with_updates(
+    name="DQN",
+    default_policy=DQNTFPolicy,->build_tf_policy
+    get_policy_class=get_policy_class,->DQNTorchPolicy->build_policy_class
+    default_config=DEFAULT_CONFIG,#rllib/agent/dqn/DEFAULT_CONFIG
+)
+
 	
 def build_trainer(name,default_policy,get_policy_class,execution_plan,default_config):
 	base = add_mixins(Trainer, mixins) #mixins = [] base->Trainer
     class trainer_cls(Trainer):
 		_name = name
         _default_config = default_config or COMMON_CONFIG -> DEFAULT_CONFIG
-        _policy_class = default_policy
+        _policy_class = default_policy | get_policy_class(config)
 		
 		def __init__():
+			self.workers = self._make_workers()
 		def setup():
 			super().setup(config)
 		def _init(config，env_creator):
 			self._policy_class = default_policy->SimpleQTorchPolicy|SimpleQTFPolicy 第一次初始化->build_policy_class
+			self.workers = self._make_workers()
 		
 		def step():Trainable|Trainer 的step在此处调用
-			step_results = next(self.train_exec_impl)
+			step_results = next(self.train_exec_impl)->execution_plan(self.workers, config)
+		
 			
+if __name__ == "__main__":
+	agent = dqn.DQNTrainer(_config, env=StockTradingEnv)
+	for epoch in range(0,10000000):
+		result = agent.train()
 			
 	
 	
