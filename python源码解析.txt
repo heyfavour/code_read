@@ -1,0 +1,411 @@
+#include/object.h
+#PyObject
+typedef struct _object {
+    _PyObject_HEAD_EXTRA
+    Py_ssize_t ob_refcnt;#Py_ssize_t 8字节int  ob_refcnt 引用计数器  ->8字节引用计数器
+    PyTypeObject *ob_type;#指向PyTypeObject的指针 类型对象(10 是实例对象 int是类型对象)
+} PyObject;
+
+
+#PyVarObject
+typedef struct {
+    PyObject ob_base;#PyObject 继承
+    Py_ssize_t ob_size; #可变数量组成部分 [1,1,1] ob_size = 3  
+} PyVarObject;
+
+#不可变对象 - 更改后地址发生变化 
+Number String Tuple None
+#可变对象 - 更改后地址不发生变化 
+list() dict() set()
+
+############################################################################################PyLongObject
+#include/longobject.h
+typedef struct _longobject PyLongObject; 
+#define PyObject_VAR_HEAD      PyVarObject ob_base;
+
+#include/longintrepr.h
+struct _longobject {
+    PyObject_VAR_HEAD#->PyObject_VAR_HEAD -> PyVarObject
+    digit ob_digit[1];
+};
+合并后 ->
+typedef struct {
+	Py_ssize_t ob_refcnt;//引用计数器				  8字节
+	PyTypeObject *ob_type #变量类型 				  8 字节 type地址
+	Py_ssize_t ob_size;#PyLongObject 有多少个元素组成 8字节
+	digit ob_digit[1]; #取决于PyLongObject的大小 4字节间距增加
+}PyLongObject
+最小24个字节 
+#24位数  ob_digit[x,x,x]  ob_size=3   3*8 = 24
+-----------------------整数对象池
+[-5,256] PyLongObject->small_ints
+python 2
+#//inobject.c
+typedef struct _intblock PyIntBlock
+struct _intblock{
+	struct _intblock *next;指向下一个block
+	PyIntObject objects[N_INTPBJECTS] //储存被缓存的PyIntObject 内存地址
+
+}
+static PyIntBlock *blcok_list=null #串接block
+static PyintObject *free_list=null	#串接block内的对象 指向未被调用的对象
+
+大整数  
+pyint_fromlong {
+	//小整整对象池
+	1.创建新的内存块  N_INTPBJECTS个PyIntObject obejcts
+	blcok_list 指向object内存头  
+	free_list  指向最后block_list.next 方便别的调用
+	
+}
+对象删除后重新维护free_list
+python 3 
+#只维护一个小整数池
+
+
+----------------------------------
+PyLongObject  instance -> PyLong_Type(PyTypeObject) - >PyType_Type(PyTypeObject)
+1.类型对象的tp_new(int(PyLongObject) -->PyLong_Type(PyTypeObject))
+2.tp_new=null tp_base ->基类 PyLong_Type(PyTypeObject) - >PyType_Type(PyTypeObject)
+3.基类种的tp_new
+4.PyLong_Type tp_basicsize 申请内存
+5.tp_init
+############################################################################################
+
+############################################################################################
+
+############################################################################################PyTypeObject
+#include/object.h
+typedef struct _typeobject PyTypeObject;
+#include/cpython/object.h
+#类型名 tp_name
+#内存 py_ssize_t tp_basicsize,tp_itemsize
+#操作 
+#类型的类型 pytype_type->metaclass 元类
+---------------------------------------------------------------------
+#Object/typeobject.c
+PyTypeObject PyType_Type = {
+    PyVarObject_HEAD_INIT(&PyType_Type, 0)
+    "type",                                     /* tp_name */#type name int(10) ->int
+    sizeof(PyHeapTypeObject),                   /* tp_basicsize */
+    sizeof(PyMemberDef),                        /* tp_itemsize */
+    (destructor)type_dealloc,                   /* tp_dealloc */
+
+    // ...
+    (reprfunc)type_repr,                        /* tp_repr */
+
+    // ...
+};
+PyType_Type 是  PyTypeObject的一个实例 指针指向自己
+---------------------------------------------------------------------
+struct _typeobject {
+    PyObject_VAR_HEAD#->PyVarObject
+    const char *tp_name; /* For printing, in format "<module>.<name>" */
+    Py_ssize_t tp_basicsize, tp_itemsize; /* For allocation */
+
+    /* Methods to implement standard operations */
+
+    destructor tp_dealloc;
+    Py_ssize_t tp_vectorcall_offset;
+    getattrfunc tp_getattr;
+    setattrfunc tp_setattr;
+    PyAsyncMethods *tp_as_async; /* formerly known as tp_compare (Python 2)
+                                    or tp_reserved (Python 3) */
+    reprfunc tp_repr;
+
+    /* Method suites for standard classes */
+
+    PyNumberMethods *tp_as_number;
+    PySequenceMethods *tp_as_sequence;
+    PyMappingMethods *tp_as_mapping;
+
+    /* More standard operations (here for binary compatibility) */
+
+    hashfunc tp_hash;
+    ternaryfunc tp_call;
+    reprfunc tp_str;
+    getattrofunc tp_getattro;
+    setattrofunc tp_setattro;
+
+    /* Functions to access object as input/output buffer */
+    PyBufferProcs *tp_as_buffer;
+
+    /* Flags to define presence of optional/expanded features */
+    unsigned long tp_flags;
+
+    const char *tp_doc; /* Documentation string */
+
+    /* Assigned meaning in release 2.0 */
+    /* call function for all accessible objects */
+    traverseproc tp_traverse;
+
+    /* delete references to contained objects */
+    inquiry tp_clear;
+
+    /* Assigned meaning in release 2.1 */
+    /* rich comparisons */
+    richcmpfunc tp_richcompare;
+
+    /* weak reference enabler */
+    Py_ssize_t tp_weaklistoffset;
+
+    /* Iterators */
+    getiterfunc tp_iter;
+    iternextfunc tp_iternext;
+
+    /* Attribute descriptor and subclassing stuff */
+    struct PyMethodDef *tp_methods;
+    struct PyMemberDef *tp_members;
+    struct PyGetSetDef *tp_getset;
+    // Strong reference on a heap type, borrowed reference on a static type
+    struct _typeobject *tp_base;
+    PyObject *tp_dict;
+    descrgetfunc tp_descr_get;
+    descrsetfunc tp_descr_set;
+    Py_ssize_t tp_dictoffset;
+    initproc tp_init;
+    allocfunc tp_alloc;
+    newfunc tp_new;
+    freefunc tp_free; /* Low-level free-memory routine */
+    inquiry tp_is_gc; /* For PyObject_IS_GC */
+    PyObject *tp_bases;
+    PyObject *tp_mro; /* method resolution order */
+    PyObject *tp_cache;
+    PyObject *tp_subclasses;
+    PyObject *tp_weaklist;
+    destructor tp_del;
+
+    /* Type attribute cache version tag. Added in version 2.6 */
+    unsigned int tp_version_tag;
+
+    destructor tp_finalize;
+    vectorcallfunc tp_vectorcall;
+};
+
+创建对象
+tp_new  __new__
+tp_init __init__
+
+#define _PyObject_EXTRA_INIT 0, 0,
+#define PyObject_HEAD_INIT(type) { _PyObject_EXTRA_INIT 1, type },
+#define PyVarObject_HEAD_INIT(type, size){ PyObject_HEAD_INIT(type) size },
+
+PyTypeObject PyLong_Type = {
+    PyVarObject_HEAD_INIT(&PyType_Type, 0)
+    "int",                                     /* tp_name */#type name int(10) ->int
+	offsetof(PyLongObject,ob_digit)
+	sizeof(digit)
+	long_dealloc
+	0,
+    // ...
+	0,
+	0,
+	long_new,
+	PyObject_Del,
+}
+
+
+PyTypeObject PyBaseobject_Type = {
+    PyVarObject_HEAD_INIT(&PyType_Type, 0)
+    "object",                                   /* tp_name */#type name int(10) ->int
+	sizeof(PyObject)							/* tp_basicsize */
+    0,                        					/* tp_itemsize */
+    object_dealloc,                   			/* tp_dealloc */
+}
+
+type (元类)   obejct(基类)  互为实例
+Fundamental:类型对象
+Numeric:数值对象
+Sequence:集合对象 string list tuple
+Mapping:dict
+internal:虚拟机内存对象
+###############################################################################
+
+
+###############################################################################字符串对象
+#PyBytesObjects
+typedef struct {
+	py_hash_t ob_hash;#缓存hash值 避免重复计算 dict
+	//PyBytesObjectss 内部维护的字符串以'\0'结尾
+	char ob_sbal[1];//字符指针 指向obv_size+1个字节的内存
+	py_ssize_t ob_size;
+	py_ssize_t	ob_refcnt;
+	strunct _typeobject *obtype;
+} PyBytesObjectss
+
+PyTypeObject PyBytes_Type{
+    PyVarObject_HEAD_INIT(&PyType_Type, 0)
+    "bytes",                                    
+	PyBytesObject_Size //ob_size
+	sizeof(char)
+	....
+}
+创建对象
+1.判断长度
+2.if string = "":处理空串 nullstring
+3.if len(string) == 1:处理单个字符 字符串缓冲池
+4.创建对象 初始化
+(string) (string,size)
+
+intern->PyDictObject 仅用于字符串对象
+创建临时对象string时，先去intern中寻找是否存在
+string判断对象是否存在 string 既是key也是value intern
+python 2 ->intern穿插在创建object过程中
+python 3 ->单独的sys库
+
+100个字符串字符串拼接
+string 不可变对象
+创建N-1个对象 进行N-1次内存申请与释放
+list对象 join
+###############################################################################
+
+
+###############################################################################List
+动态顺序表->c++ vector
+
+typedef struct{
+	PyObject_Var_Head
+	pyobject **item //首地址指针
+	py_ssize_t allocated //申请的总量
+}
+
+#PyVarObject->PyObject_Var_Head
+typedef struct {
+    PyObject ob_base;#PyObject 继承
+    Py_ssize_t ob_size; #现有的已使用的
+} PyVarObject;
+
+typedef struct _object {
+    _PyObject_HEAD_EXTRA
+    Py_ssize_t ob_refcnt;#Py_ssize_t 8字节int  ob_refcnt 引用计数器  ->8字节引用计数器
+    PyTypeObject *ob_type;#指向PyTypeObject的指针 类型对象(10 是实例对象 int是类型对象)
+} PyObject;
+
+PyListNew(Py_ssize_t,size)->PyListObject
+1.检查缓冲池中是否有可用的对象 （与整数池 string intern 方式不一样）
+2.第一次创建pylistobject 绕过这个机制 直接调用pyobect_gc_new
+	1.
+	1.两部分  1.list对象 + 元素列表内存的首地址  2. ob_item 连接
+	[object*,object*,object*]
+	LIST -> object*->object
+	
+销毁 list + object + 内存 
+列表对象缓冲池 list对象 只是一个列表  object还是自己看
+###############################################################################
+
+
+###############################################################################Dict
+python 散列表  O(1) 散列函数 hash value
+散列冲突
+1.开链法
+2.开放定址法:python 二次探测函数 伪删除
+fi(key) = (f(key)+di) MOD m (di=下次探测的要加的数)
+
+pyobject(ob_refcnt,*obtype)
+pydictobject(
+	pyobject,
+	ma_used,#字典元素数量
+	version_tag,#对象版本
+	PyDictKeysObject *keys,#两种存储方式 key  key+value if value ==null
+	**values#为了共用类 if value ==null key,value in *keys  叫做结合表 key in *keys value in *values 叫做分散表
+)
+	*keys->PyDictKeysObject 两种存储方式 key  key+value
+		  PyDictKeysObject(
+		      dk_refcnt,
+			  dk_size,#哈希表大小 dk_size =  dk_usable+ dk_nentris
+			  dk_lookup,#hash_func 查找表中元素
+			  dk_usable,	#dk_entris 可以用数量
+			  dk_nentris,	#dk_entris 使用中数量->哈希表 PyDictKeyEntry (hash_value,key,value)
+			  dk_indices[]，#索引->哈希表具体存储方式
+		   ) 
+			
+		   typedef struct {
+				py_hash_t me_hash #避免重复计算
+				pyobject  *me_key
+				pyobject  *me_value
+		   } PyDictKeyEntry
+		       entry生存周期
+			   1.unused:初始化
+			   2.active:已经被存储了
+			   3.dummy:伪删除
+			   4.pending：value=null
+				python3.6之前 entries按计算的位置插入 会导致很多空缺 [1 2 3 4 5]定位是5但之前都是空缺的
+							  根据hash值排序
+				python3.6之后 加入dk_indices indices_index = hash("key") % 8 然后插入entres的id
+							  提高了空间利用率
+							  根据入列顺序 从此dict有序
+		   indices []
+				-1	空值 未初始化
+				-2 	dummy
+				>0	entry
+				
+	value->value
+	
+dict 增删改查
+2种搜索策略lookdict_string对key进行了假设 所以搜索效率lookdict高
+freeslot 指向一个失败且立即可用的位置。搜索 return freeslot if freeslot or unused
+
+重载 
+dk_size =  dk_usable+ dk_nentris
+2/3时 重载 不复制dummy 相当于一个新链表
+python key冲突
+#
+index = ((5*index)+1)mod 2**index
+perturb>>=PERURB_SHIFT
+index = ((5*index) + 1 + perturb) & mask
+###############################################################################
+
+
+###############################################################################多态
+重写 子类方法和参数一直 但是返回类型相同
+重载 
+python函数间传递的是一种泛型指针 pyobject* 指针所指对象类型从对象的ob_type域动态判断
+
+
+################################################################################内存池
+
+解释器:判断语句
+编译器：字节码编译
+虚拟机：执行字节码
+执行环境：字典对象 维护运动过程中动态创建的变量名和变量值的映射
+
+import compileall  	compileall.compile_file("xxx.py")
+improt py_compile 	py_compile.compile("xxx.py","xxx.pyc")
+
+source = open("xxx.py").read()
+co = compile(source,"ErrorLog.err","exec")#compile(原代码,存储出错信息，编译模式(exec,eval,single))
+#pycodeobject
+print(co.co_consts)	#常量表
+print(co.co_names)	#符号表
+
+import dis
+
+dis.dis(co)
+
+
+流程:
+	1.模块加载和链接
+	2.源代码编译PyCodeObject对象 并写入内存
+		pycodeobject对象 包含字符串 常量值 操作 等静态信息(运行时才存储再pycodeobject对象，运行结束后存储再pyc,便于下次直接读取)
+	3.从内存空间读取执行并执行(虚拟机执行) python36.dll:编译器和虚拟机
+	4.程序结束后根据调用指令决定是否讲pycodeobject写入硬盘 .pyc .pyo
+	5.再次执行检查是否存在pyc文件
+
+typedef struct {
+	PyObject_Head
+	int co_argcount
+	int co_kwonlyargcount
+	int co_nlocals
+	int co_stack_size
+	int co_flags
+	int	cofirstlineno,
+	PyObject *co_code		#字节码序列指令	一个字节码=opcode+oparg 指令+参数
+	PyObject *co_consts		#常量表		命名空间嵌套
+	PyObject *co_names		#常量符号name	一个名字空间(类|函数|module )对应一个pycodeobject
+	PyObject *co_varnames
+	PyObject *co_freevars
+	PyObject *co_cellvars
+	
+} 
+
+pyc = magic number(python版本)+pyc修改时间(判断是否修改过)+pycodeobject
