@@ -409,3 +409,88 @@ typedef struct {
 } 
 
 pyc = magic number(python版本)+pyc修改时间(判断是否修改过)+pycodeobject
+w_object写入对象时先写入类型标志 便于pyc再次加载
+最后都是通过w_long w_string(需要考虑intern)将任意复杂对象写入pyc
+
+dict->pyc
+key value :初次写入(pystringobject,pylongobject)->dict
+初次写入:(type_interned string_len string)
+非初次写入:(tyoe_ref,index)
+
+
+################################################################################栈
+|--ESP-|
+|-变量-|
+|-函数-|
+|--EBP-|
+
+PyFrameObject{
+	pycodeobject
+	名字空间
+	动态内存
+}
+执行环境
+
+导入函数或发生函数调用时创建新的pyframeobject
+PyFrameObject
+typedef struct _frame {
+	Pyobject_var_head
+	struct _feame *f_back#指向旧的栈帧
+	pycodeobject *f_code #待执行的pycodeobject
+	#名字空间->dict
+	pyobject *f__buildtins  #内置名称
+	pyobject *f_globals		#模块变量 类 函数
+	pyobject *f_locals		#变量
+	
+	pyobject **f_valuesstack#栈低
+	pyobject **f_stacktop#栈顶
+	
+	pyobject *f_localsplus[1]#动态内存 局部变量+栈内存
+}
+
+
+###############################################################################命名空间
+pyframeobject = pycodeobject + 名字空间 + 静态信息 + 动态内存空间
+
+dict->namespace
+built_in:
+global:
+	{
+		a:a,
+		f:f()
+	}
+local:
+LGB
+local->global->built_in
+LEGB
+local->nonlocal->global->built_in
+
+###############################################################################虚拟机
+pycodeobject
+----------
+a=6
+b=1
+a=a+b
+----------
+objects_operated_by_interpreter = {
+	#对应pycodeobject co_code
+	"co_code" :[(LOAD_VALUE,0),(STORE_NAME),(LOAD_VALUE)]
+	"co_consts":[6,1] #常量列表
+	co_names:["a","b"]#变量名列表
+}
+###############################################################################运行时环境
+#进程-主线程
+pyinterpreter(进程)
+pythreadstate(线程)->pyframeobject(一个线程多个栈帧)
+
+线程切换需要保存当前线程的信息
+//获取当前线程的执行环境
+pyframeobject *back = state->frame
+pyframeobject *f
+
+//创建新的执行环境
+pyframeobject *new_f = pyobject_gc_resize(pyframeobject,f,extras)
+//f_back执行环境链上的前一个执行环境
+f->f_back=back
+
+PyEval_EvalObject
