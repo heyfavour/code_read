@@ -1,0 +1,99 @@
+REDIS:
+	string - 	SDS
+	list   -	quicklist 	双向链表 + 压缩链表
+	hash   -	listpack 	优化压缩链表
+		   -	hash
+	zset   -	listpack	优化压缩链表
+		   -	跳表
+
+	set    -	整数集合
+		   -	哈希表
+		   
+	AOF
+	AOF->server.aof_buf缓冲区->write()->内核缓冲区page cache(fsync)-->磁盘
+	三种写测试:always everysec no
+
+	aof文件超过阈值 重写->后台子进程 bgrewriteaof 来完成的 复制页表 写时复制
+
+	重写时:命令写道aof缓冲区和重写缓冲区两处
+	重写后:追加重写缓冲区 覆盖旧的aof文件
+
+	RDB
+	save
+	bgsave 子进程 复制页表 写时复制
+
+
+	删除:惰性删除 查到删除 定时删除
+	内存淘汰:不淘汰 LRU LFU
+
+						1.关闭文件
+	4个NIO线程+主线程 + 2.AOF刷盘
+						3.lazy free 释放对象
+MYSQL:
+	表空间-段-区-页-行   按页读取 16KB
+	Compact  行   变长字段长度列表|NULL值列表|记录头信息|row_id|trx_id|roll_ptr|col col col |
+				 |---------额外信息---------------------|------------真实数据---------------|
+				 trx_id ---->事务id
+				 roll_ptr--->undo log
+	
+	按「物理存储」分类：聚簇索引（主键索引）、二级索引（辅助索引）。
+	按「字段特性」分类：主键索引、唯一索引、普通索引、前缀索引。
+	按「字段个数」分类：单列索引、联合索引。
+	
+	事务:
+	读未提交:脏读  不可重复读 幻读
+	读已提交:	   不可重复读 幻读
+	可重复读:				  幻读 
+	串行化:
+	
+	可重复读:
+	快照读幻读->MVCC trx_id
+	当前读幻读->net key lock
+
+	锁:
+		全局锁
+		
+		表锁
+		
+		行锁
+			行锁:select where id = 1 for update
+			间隙锁:只存在于可重复读隔离级别  两个事务可同时持有包含共同间隙范围的间隙锁
+			Next-Key Lock:行锁+间隙锁
+			插入意向锁:
+			
+		如何加锁:
+		主键 
+			等值 存在 行锁 不存在 间隙锁
+			范围  行锁+间隙锁
+		非唯一索引
+			等值 存在 行锁 间隙锁 不存在 间隙锁
+			范围 扩大范围
+		不走索引时锁全表
+	
+	日志:
+	UNDO LOG   事务「开始前」的数据
+		Compact  行   变长字段长度列表|NULL值列表|记录头信息|row_id|trx_id|roll_ptr|col col col |
+				 |---------额外信息---------------------|------------真实数据---------------|
+				 trx_id ---->事务id
+				 roll_ptr--->undo log
+				 
+		Buffer Pool 索引页 数据页 undo页
+	REDO LOG  事务「完成后」的数据 
+		innodb_flush_log_at_trx_commit  write 1/s
+		0->log buff
+		1->log buff->page cache->磁盘
+		2->log buff->page cache
+		
+		重做日志文件组  循环写
+	BIN LOG
+	
+	commit: commit 		start
+			redolog  	Prepare
+			binlog		fsync   组提交
+			redolog 	commit
+			commit 		end
+			
+			
+									
+	
+	
